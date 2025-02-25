@@ -1,180 +1,236 @@
-# Energy Price Prediction
-
-## INFORMACION PREVIA:
-
-La separación entre **país** y **bidding zone** en la industria de la energía se debe a la forma en que funcionan los mercados eléctricos en Europa y en otras regiones del mundo. Aquí te explico las razones principales:
+### **📘 Energy Price Prediction - Documentation**  
+**Version:** 1.0 | **Last Updated:** 25/02/2025  
 
 ---
 
-### **1. Los mercados eléctricos no siempre siguen las fronteras nacionales**
-Los mercados de energía en Europa están organizados en **bidding zones** (zonas de oferta) que no necesariamente coinciden con los límites geográficos de los países. 
+# **1. Executive Overview**  
 
-- Algunos países tienen **varias bidding zones** debido a limitaciones en su red de transmisión eléctrica.  
-  - Ejemplo: **Italia** tiene varias zonas de oferta (`IT-North`, `IT-South`, `IT-Sicily`, etc.).
-- Otros países **comparten una misma bidding zone** con países vecinos.  
-  - Ejemplo: **Alemania y Luxemburgo** están en la misma zona de oferta `DE-LU`.
+## **1.1 Introduction**  
+**Energy Price Prediction** is a data-driven system designed to predict electricity prices using historical energy prices and meteorological data. The system continuously ingests and processes energy market and climate data, applies an ETL pipeline, and trains a machine learning model to generate accurate price predictions.  
 
----
-
-### **2. ¿Qué es una Bidding Zone?**
-Una **bidding zone** es un área dentro de un mercado eléctrico donde los precios de la electricidad son homogéneos porque no hay restricciones internas significativas en la red de transmisión.  
-
-- **Si un país tiene suficiente capacidad de transmisión interna**, todo el país puede ser una única bidding zone (ej. España `ES`).  
-- **Si un país tiene cuellos de botella o congestión en la red de transmisión**, se divide en múltiples zonas de oferta para reflejar las diferencias en precios y oferta/demanda (ej. Italia).  
-- **Si dos países tienen redes eléctricas bien integradas**, pueden compartir la misma zona de oferta (ej. Alemania y Luxemburgo).
+The project is fully **containerized with Docker**, orchestrated via **APScheduler**, and provides an API for real-time price forecasting.  
 
 ---
 
-### **3. Impacto en la Fijación de Precios**
-Los precios de la electricidad dentro de una misma **bidding zone** son generalmente los mismos, mientras que diferentes zonas pueden tener precios distintos debido a factores como:
-
-- **Capacidad de transmisión**: Si una región genera más energía renovable pero no puede enviarla a otra región con alta demanda, los precios bajarán en la primera y subirán en la segunda.
-- **Demanda y oferta local**: Algunas zonas tienen más generación de energía eólica, solar o nuclear que otras.
-- **Interconexiones con otros mercados**: Una zona con muchas conexiones internacionales puede tener precios más estables.
-
----
-
-### **Ejemplo Práctico**
-Supongamos que quieres analizar los precios de la electricidad en Alemania (`de`):
-
-- Si consultas por **país (`COUNTRY=de`)**, podrías estar incluyendo datos generales que no reflejan la variabilidad regional.
-- Si consultas por **bidding zone (`BIDDING_ZONE=DE-LU`)**, estarás obteniendo datos más específicos del mercado real en el que opera Alemania junto con Luxemburgo.
-
-Lo mismo aplica para otros países con múltiples bidding zones, como Italia, Suecia y Noruega.
+## **1.2 Key Features**  
+✔ **Automated Data Ingestion** – Retrieves real-time and historical data from energy markets and weather APIs.  
+✔ **Scalable Data Processing** – Efficient ETL pipeline using MongoDB for structured data storage.  
+✔ **Machine Learning Predictions** – Uses `RandomForestRegressor` to forecast energy prices.  
+✔ **REST API with FastAPI** – Provides real-time predictions and integrates with external applications.  
+✔ **Fully Dockerized** – Managed via `docker-compose` for seamless deployment.  
+✔ **Task Scheduler** – Uses `APScheduler` to automate data ingestion, ETL, and model training.  
 
 ---
 
-### **Conclusión**
-El **país (`COUNTRY`)** en la API puede representar una agregación de datos de todo el país, mientras que la **bidding zone (`BIDDING_ZONE`)** refleja mejor los precios reales dentro del mercado eléctrico. **Es importante usar `BIDDING_ZONE` si se quiere hacer predicciones precisas de precios de energía.**
+## **1.3 System Architecture**  
+
+```
+                     +----------------------------+
+                     |    Energy Price API        |
+                     |  (FastAPI & ML Model)      |
+                     +------------+--------------+
+                                  |
+                                  v
+                     +----------------------------+
+                     |      MongoDB Database      |
+                     | Stores Energy & Weather   |
+                     +------------+--------------+
+                                  |
+          +-----------------------+----------------------+
+          |                       |                      |
+          v                       v                      v
+  +--------------+      +-----------------+      +--------------+
+  |  Data Ingestion  |  |  ETL Processing  |  | Model Training |
+  |  (Energy & Weather) |  | (Data Cleaning &  |  |  (RandomForest)  |
+  +--------------+      |  Merging)         |      +--------------+
+                        +-----------------+      
+
+```
+
+- **Energy Data:** Collected from `energy-charts.info` (historical and real-time).  
+- **Weather Data:** Collected from `open-meteo.com`.  
+- **Data Storage:** Stored in MongoDB for efficient processing.  
+- **Machine Learning:** Uses RandomForest for training and prediction.  
+- **APScheduler:** Manages periodic data extraction and model retraining.  
+- **REST API:** Provides an endpoint for energy price predictions.  
 
 ---
 
-Si tienes más dudas sobre esto, dime y lo analizamos más a fondo antes de seguir con el desarrollo. 🚀
+# **2. Technical Documentation**  
 
-## EJECUCION DE LA PLATAFORMA:
+## **2.1 Project Structure**  
 
-## **Paso 1: Crear el Script de Descarga Diaria**
-Vamos a estructurar el script `src/daily_update.py`, que se encargará de:
-
-1. **Ejecutar la ingesta de datos** (`data_ingestion.py`).
-2. **Re-entrenar el modelo** (`model_training.py`).
-3. **Registrar logs de cada ejecución**.
-
-### **1.1 Crear `src/daily_update.py`**
-Edita o crea el archivo `src/daily_update.py` con el siguiente contenido:
-
-```python
-import subprocess
-import datetime
-
-LOG_FILE = "logs/daily_update.log"
-
-def log_message(message):
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    with open(LOG_FILE, "a") as log_file:
-        log_file.write(f"{timestamp} - {message}\n")
-    print(message)
-
-def run_ingestion():
-    log_message("Iniciando ingesta de datos...")
-    result = subprocess.run(["python", "src/data_ingestion.py"], capture_output=True, text=True)
-    log_message(result.stdout if result.stdout else "Error en la ingesta")
-
-def run_training():
-    log_message("Iniciando re-entrenamiento del modelo...")
-    result = subprocess.run(["python", "src/model_training.py"], capture_output=True, text=True)
-    log_message(result.stdout if result.stdout else "Error en el entrenamiento")
-
-if __name__ == "__main__":
-    log_message("=== Inicio del proceso diario ===")
-    run_ingestion()
-    run_training()
-    log_message("=== Fin del proceso diario ===")
+```
+.
+├── docker-compose.yml          # Defines services and dependencies
+├── DockerfileApi               # API container setup
+├── DockerfileScheduler         # Scheduler container setup
+├── main.py                     # FastAPI main entry point
+├── model_validation_results.csv # Model evaluation results
+├── README.md                   # Project documentation
+├── requirements.txt            # Dependencies
+├── scheduler.py                # APScheduler task manager
+├── src/                        # Source code
+│   ├── api.py                  # API for predictions
+│   ├── data_ingestion.py        # Energy price data ingestion
+│   ├── data_ingestion_meteo.py  # Weather data ingestion
+│   ├── historical_data_ingestion.py  # Historical energy data
+│   ├── historical_data_ingestion_meteo.py  # Historical weather data
+│   ├── quality_tester.py        # Model evaluation
+│   ├── train_model_batch.py     # Batch training script
+│   ├── web_scrapper.py          # Web scraper for API data
+└── test/                        # Test scripts
+    └── prediction1.sh           # API test using `curl`
 ```
 
 ---
 
-## **Paso 2: Programar la Ejecución Automática**
-Tienes dos opciones: **cronjob (local, simple)** o **Celery + Redis (escalable, en producción)**.
+## **2.2 Installation & Deployment**  
 
-### **Opción 1: Usar Cronjob en Linux**
-Para ejecutar el script todos los días a las 03:00 AM, sigue estos pasos:
+### **1️⃣ Prerequisites**  
+- **Docker & Docker Compose** installed.  
+- `.env` file configured with API keys and database settings.  
 
-1. Abre el editor de cron:
-   ```bash
-   crontab -e
-   ```
+### **2️⃣ Build the Containers**  
+```bash
+docker-compose build
+```
 
-2. Agrega esta línea al final del archivo:
-   ```bash
-   0 3 * * * /usr/bin/python3 /ruta/del/proyecto/src/daily_update.py >> /ruta/del/proyecto/logs/cron.log 2>&1
-   ```
+### **3️⃣ Start the Services**  
+```bash
+docker-compose up -d
+```
+This will start:
+- **MongoDB**
+- **Scheduler (APScheduler)**
+- **API (FastAPI)**
 
-   - `0 3 * * *` → Ejecutar a las 03:00 AM todos los días.
-   - `/usr/bin/python3` → Ruta de Python (confirma con `which python3`).
-   - `>> logs/cron.log 2>&1` → Guarda la salida en un archivo de log.
-
-3. Guarda y cierra el archivo. Para verificar los cronjobs activos:
-   ```bash
-   crontab -l
-   ```
+### **4️⃣ Check Running Containers**  
+```bash
+docker ps
+```
 
 ---
 
-### **Opción 2: Usar Celery + Redis (Para Producción)**
-Si planeas ejecutar tareas en la nube con mayor control y escalabilidad, usa **Celery**.
+## **2.3 Environment Variables**  
 
-1. **Instalar Celery y Redis**
-   ```bash
-   pip install celery redis
-   ```
+### **Configuration in `.env`**
+```ini
+# Example configuration, take a look at the actual .env file to observe the complete list of parameters
 
-2. **Levantar un contenedor Redis con Docker**
-   ```bash
-   docker run -d --name redis -p 6379:6379 redis
-   ```
+# MongoDB Database
+MONGO_URI=mongodb://mongo:27017/
+MONGO_DB=energy
+MONGO_COLLECTION_ENERGY=energy_prices
+MONGO_COLLECTION_METEO=weather_data
 
-3. **Crear `src/tasks.py` para definir las tareas**
-   ```python
-   from celery import Celery
-   import subprocess
+# Energy Data API (Energy-Charts)
+COUNTRY=ro
+BIDDING_ZONE=RO
 
-   app = Celery("tasks", broker="redis://localhost:6379/0")
+# Weather API (Open-Meteo)
+METEO_LATITUDE=51.1657
+METEO_LONGITUDE=10.4515
 
-   @app.task
-   def run_ingestion():
-       subprocess.run(["python", "src/data_ingestion.py"])
+# Execution Intervals
+EXTRACTION_INTERVAL=43200  # Every hour
+TRAINING_INTERVAL=86400    # Every 24 hours
+```
 
-   @app.task
-   def run_training():
-       subprocess.run(["python", "src/model_training.py"])
-   ```
+---
 
-4. **Ejecutar el worker de Celery**
-   ```bash
-   celery -A src.tasks worker --loglevel=info
-   ```
+## **2.4 Services Overview**  
 
-5. **Ejecutar tareas automáticamente cada día**
-   En `src/celery_schedule.py`:
-   ```python
-   from celery.schedules import crontab
-   from src.tasks import app, run_ingestion, run_training
+### **1️⃣ Scheduler (`scheduler.py`)**  
+- Runs **data ingestion**, **ETL**, and **training** periodically.
+- Uses **APScheduler** to schedule tasks.
 
-   app.conf.beat_schedule = {
-       "daily-ingestion": {
-           "task": "src.tasks.run_ingestion",
-           "schedule": crontab(hour=3, minute=0),
-       },
-       "daily-training": {
-           "task": "src.tasks.run_training",
-           "schedule": crontab(hour=4, minute=0),
-       },
-   }
-   ```
+**Example Log Output:**
+```
+🚀 [2025-02-25 12:00:00] Running data extraction...
+✅ [2025-02-25 12:00:10] Extraction completed
+📊 [2025-02-25 12:00:30] Running model training...
+✅ [2025-02-25 12:01:50] Training completed
+```
 
-6. **Ejecutar Celery Beat (scheduler)**
-   ```bash
-   celery -A src.tasks beat --loglevel=info
-   ```
+---
+
+### **2️⃣ API Service (`api.py`)**  
+Provides **energy price predictions** based on weather conditions.
+
+#### **Endpoint: `/predict/`**  
+```http
+POST /predict/
+```
+
+📌 **Example Request (`curl`):**
+```bash
+curl -X POST "http://localhost:8000/predict/" \
+-H "Content-Type: application/json" \
+-d '{
+  "temperature": 5.0,
+  "humidity": 80,
+  "precipitation": 0.0,
+  "rain": 0.0,
+  "snowfall": 0.0,
+  "surface_pressure": 1012.0,
+  "cloud_cover": 75.0,
+  "wind_speed_10m": 3.5,
+  "wind_speed_100m": 10.2,
+  "wind_direction_10m": 180,
+  "wind_direction_100m": 200,
+  "days_since_start": 3650
+}'
+```
+
+📌 **Example Response:**
+```json
+{
+  "predicted_price": 102.5,
+  "unit": "EUR/MWh",
+  "input_data": { ... }
+}
+```
+
+📌 **Swagger UI is available at:**  
+👉 `http://localhost:8000/docs`
+
+---
+
+## **2.5 Machine Learning Model**  
+
+### **1️⃣ Training Script (`train_model_batch.py`)**  
+- **Uses `RandomForestRegressor`**
+- **Trains on batched data from MongoDB**
+- **Handles missing data and scaling**
+
+**Model Parameters:**
+```python
+model = RandomForestRegressor(n_estimators=150, max_depth=None, random_state=42, n_jobs=-1)
+```
+
+### **2️⃣ Model Evaluation (`quality_tester.py`)**  
+Runs evaluation using **Mean Absolute Error (MAE)**.
+
+**Example Execution:**
+```bash
+python src/quality_tester.py
+```
+
+**Expected Output:**
+```
+📊 Evaluation completed. MAE: 11.87 EUR/MWh
+📂 Results saved in 'model_validation_results.csv'
+```
+
+---
+
+## **2.6 Stopping the Services**  
+To stop all containers:
+```bash
+docker-compose down
+```
+
+## **4. Contact**  
+📧 **Support:** tom@skylinecodew.com 
 
