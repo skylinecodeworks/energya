@@ -5,7 +5,7 @@ from pymongo import MongoClient
 from sklearn.metrics import mean_absolute_error
 
 # Conectar a MongoDB
-MONGO_URI = "mongodb://admin:password@localhost:27017/"
+MONGO_URI = "mongodb://mongo:27017/"
 MONGO_DB = "energy_db"  # Reemplázalo con el nombre real de tu BD
 MONGO_COLLECTION_ENERGY = "energy_prices"
 MONGO_COLLECTION_METEO = "weather_data"

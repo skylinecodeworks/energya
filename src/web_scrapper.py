@@ -2,7 +2,11 @@ import os
 import time
 import json
 import logging
+import tempfile
+import subprocess
+
 from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from bs4 import BeautifulSoup
@@ -34,15 +38,34 @@ client = MongoClient(MONGO_URI)
 db = client[MONGO_DB]
 collection = db[MONGO_COLLECTION]
 
-# Configuración de Selenium en modo headless
-options = Options()
-options.headless = True
-options.add_argument("--disable-gpu")
-options.add_argument("--no-sandbox")
-options.add_argument("--disable-dev-shm-usage")
+def get_driver():
+    options = Options()
+    options.headless = True
+    options.add_argument("--headless")  # 🚀 Modo sin interfaz gráfica
+    options.add_argument("--no-sandbox")  # 🛠️ Requerido en contenedores Docker
+    options.add_argument("--disable-dev-shm-usage")  # Evita problemas de memoria compartida
+    options.add_argument("--disable-gpu")  # No necesitamos aceleración gráfica
+    options.add_argument("--window-size=1920x1080")
 
-# Inicializar el navegador
-browser = webdriver.Chrome(options=options)
+    # 🚨 No usar --user-data-dir para evitar problemas de sesión
+    # options.add_argument(f"--user-data-dir={tempfile.mkdtemp()}")  # 🔴 ELIMINADO
+
+    service = Service("/usr/local/bin/chromedriver")
+
+    # Cerrar Chrome antes de abrir una nueva sesión
+    kill_zombie_chrome()
+
+    driver = webdriver.Chrome(service=service, options=options)
+
+    return driver
+
+def kill_zombie_chrome():
+    """Elimina procesos de Chrome colgados antes de iniciar una nueva sesión"""
+    try:
+        subprocess.run(["pkill", "-9", "chrome"], check=True)
+        print("🛑 Procesos de Chrome cerrados antes de iniciar Selenium.")
+    except subprocess.CalledProcessError:
+        print("✅ No había procesos de Chrome activos.")
 
 def log_message(message):
     """Registrar mensaje en log y consola"""
@@ -50,18 +73,12 @@ def log_message(message):
     print(message)
 
 def navigate_and_extract(bidding_zone, start_date, end_date):
-    """Navega el Swagger UI y extrae los datos de energía usando los parámetros recibidos."""
-    options = Options()
-    options.headless = True  # Modo sin interfaz gráfica
-    options.add_argument("--disable-gpu")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
 
     browser = None
 
     try:
         # **Inicializar el navegador para cada solicitud**
-        browser = webdriver.Chrome(options=options)
+        browser = get_driver()
 
         swagger_url = "https://api.energy-charts.info/"
         api_url = f"{swagger_url}price?bzn={bidding_zone}&start={start_date}&end={end_date}"

@@ -47,7 +47,37 @@ class EnergyPredictionRequest(BaseModel):
 
 @app.post("/predict/", summary="Realizar predicción de precios de energía", response_model=dict)
 def predict(data: EnergyPredictionRequest):
-    """ Recibe datos climáticos y predice el precio de la energía en EUR/MWh. """
+    """
+    Recibe datos climáticos y predice el precio de la energía en EUR/MWh.
+
+    Ejemplos de parametros esperados:
+    - max_temperature: Temperatura máxima (Ej: 38.9)
+    - min_temperature: Temperatura mínima (Ej: -24.3)
+    - max_humidity: Humedad máxima (Ej: 100)
+    - min_humidity: Humedad mínima (Ej: 15)
+    - max_precipitation: Precipitación máxima en mm (Ej: 15.9)
+    - min_precipitation: Precipitación mínima en mm (Ej: 0)
+    - max_rain: Lluvia máxima en mm (Ej: 15.9)
+    - min_rain: Lluvia mínima en mm (Ej: 0)
+    - max_snowfall: Nieve máxima en mm (Ej: 2.87)
+    - min_snowfall: Nieve mínima en mm (Ej: 0)
+    - max_surface_pressure: Presión superficial máxima en hPa (Ej: 1033.8)
+    - min_surface_pressure: Presión superficial mínima en hPa (Ej: 974.2)
+    - max_cloud_cover: Cobertura de nubes máxima en % (Ej: 100)
+    - min_cloud_cover: Cobertura de nubes mínima en % (Ej: 0)
+    - max_wind_speed_10m: Velocidad del viento a 10m máxima en km/h (Ej: 45.3)
+    - min_wind_speed_10m: Velocidad del viento a 10m mínima en km/h (Ej: 0)
+    - max_wind_speed_100m: Velocidad del viento a 100m máxima en km/h (Ej: 78.9)
+    - min_wind_speed_100m: Velocidad del viento a 100m mínima en km/h (Ej: 0)
+    - max_wind_direction_10m: Dirección del viento a 10m máxima en grados (Ej: 360)
+    - min_wind_direction_10m: Dirección del viento a 10m mínima en grados (Ej: 1)
+    - max_wind_direction_100m: Dirección del viento a 100m máxima en grados (Ej: 360)
+    - min_wind_direction_100m: Dirección del viento a 100m mínima en grados (Ej: 0)
+
+    Devuelve:
+    - Predicción del precio de la energía en EUR/MWh.
+    """
+
     try:
         # Convertir entrada en array de numpy
         features = np.array([

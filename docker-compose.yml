@@ -1,17 +1,39 @@
-version: '3.8'
 services:
-  mongodb:
+  mongo:
     image: mongo:latest
-    container_name: energya-mongo
+    container_name: mongo_db
     restart: always
     ports:
       - "27017:27017"
     volumes:
-      - mongo-data:/data/db
+      - ./mongodb_data:/data/db
+      - ./mongodb_config:/data/configdb
+
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: DockerfileScheduler
+    container_name: scheduler_service
+    depends_on:
+      - mongo
     environment:
-      MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: password
+      - ENV_FILE=.env
+    env_file:
+      - .env
+    shm_size: "2gb"  # 🛑 Evita errores de memoria compartida con Chrome
 
-volumes:
-  mongo-data:
 
+  api:
+    build:
+      context: .
+      dockerfile: DockerfileApi
+    container_name: api_service
+    depends_on:
+      - mongo
+    ports:
+      - "8000:8000"
+    environment:
+      - ENV_FILE=.env
+    env_file:
+      - .env

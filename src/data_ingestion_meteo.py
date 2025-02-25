@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from pymongo import MongoClient
 
-from src.historical_data_ingestion_meteo import fetch_historical_weather_data, transform_weather_data, load_weather_data
+from historical_data_ingestion_meteo import fetch_historical_weather_data, transform_weather_data
 
 # Cargar configuración desde .env
 load_dotenv()
@@ -40,13 +40,27 @@ def fetch_daily_weather_data():
     start_date = (datetime.today() - timedelta(days=1)).strftime("%Y-%m-%d")
     return fetch_historical_weather_data(start_date, start_date)
 
+def load_weather_data_filtered(data):
+    """Carga datos en MongoDB solo si no existen."""
+    inserted_count = 0
+    for record in data:
+        existing_entry = collection.find_one({"timestamp": record["timestamp"]})
+        if not existing_entry:
+            collection.insert_one(record)
+            inserted_count += 1
+
+    if inserted_count > 0:
+        log_message(f"✅ {inserted_count} registros nuevos insertados en MongoDB.")
+    else:
+        log_message("⚠️ No se insertaron datos. Todos los registros ya existían.")
+
 if __name__ == "__main__":
-    log_message("Descargando datos meteorológicos diarios...")
+    log_message("📡 Descargando datos meteorológicos diarios...")
 
     data = fetch_daily_weather_data()
     if data:
         transformed_data = transform_weather_data(data)
-        load_weather_data(transformed_data)
-        log_message("Descarga diaria completada.")
+        load_weather_data_filtered(transformed_data)
+        log_message("📡 Descarga diaria completada.")
     else:
-        log_message("No se obtuvieron datos meteorológicos hoy.")
+        log_message("⚠️ No se obtuvieron datos meteorológicos hoy.")

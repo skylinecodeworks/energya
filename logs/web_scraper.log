@@ -2880,3 +2880,8 @@
 2025-02-25 16:05:53,276 - INFO - Datos obtenidos correctamente desde Swagger UI.
 2025-02-25 16:05:54,224 - INFO - No hay datos nuevos para insertar.
 2025-02-25 16:05:54,224 - INFO - Descarga diaria completada.
+2025-02-25 19:23:31,614 - INFO - Descargando datos diarios para ro (RO) desde 2025-02-25 hasta 2025-02-25...
+2025-02-25 19:23:33,410 - INFO - Navegando a https://api.energy-charts.info/ para obtener datos de RO entre 2025-02-25 y 2025-02-25
+2025-02-25 19:23:34,271 - INFO - Datos obtenidos correctamente desde Swagger UI.
+2025-02-25 19:23:35,286 - INFO - No hay datos nuevos para insertar.
+2025-02-25 19:23:35,286 - INFO - Descarga diaria completada.

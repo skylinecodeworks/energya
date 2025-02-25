@@ -1,2 +1,4 @@
 venv/
+mongodb_data/
+mongodb_config/
 
