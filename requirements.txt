@@ -1,0 +1,16 @@
+pandas
+numpy
+scipy
+scikit-learn
+joblib
+pymongo
+fastapi
+uvicorn
+prophet
+xgboost
+lightgbm
+statsmodels
+requests
+python-dotenv
+selenium
+beautifulsoup4
