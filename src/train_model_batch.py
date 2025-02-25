@@ -66,7 +66,7 @@ def fetch_data_in_batches():
 
 def train_model():
     """Entrena un modelo más robusto con RandomForestRegressor."""
-    model = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1)  # Random Forest con múltiples árboles
+    model = RandomForestRegressor(n_estimators=150, max_depth=None, random_state=42, n_jobs=-1)  # Random Forest con múltiples árboles
     scaler = StandardScaler()  # Normalización de datos
 
     X_total = []
