@@ -57,6 +57,7 @@ def fetch_data_in_batches():
         df_meteo["timestamp"] = pd.to_datetime(df_meteo["timestamp"])
 
         df_merged = pd.merge(df_energy, df_meteo, on="timestamp", how="inner")
+
         df_merged.dropna(subset=["price"], inplace=True)
 
         print(f"🔄 Registros después de la fusión: {len(df_merged)}")
@@ -65,12 +66,13 @@ def fetch_data_in_batches():
 
 
 def train_model():
-    """Entrena un modelo más robusto con RandomForestRegressor."""
-    model = RandomForestRegressor(n_estimators=150, max_depth=None, random_state=42, n_jobs=-1)  # Random Forest con múltiples árboles
+    """Entrena un modelo con pesos temporales para dar más importancia a los datos recientes."""
+    model = RandomForestRegressor(n_estimators=150, max_depth=None, random_state=42, n_jobs=-1)
     scaler = StandardScaler()  # Normalización de datos
 
     X_total = []
     y_total = []
+    time_weights = []
 
     batch_count = 0  # Contador de lotes
 
@@ -90,9 +92,13 @@ def train_model():
             print("⚠️ Se detectó un lote vacío después de limpiar NaNs, saltando...")
             continue
 
+        # Crear pesos temporales para dar más importancia a datos recientes
+        df_batch["time_weight"] = (df_batch["timestamp"] - df_batch["timestamp"].min()).dt.days + 1
+
         # Acumular datos para el entrenamiento
         X_total.append(X)
         y_total.append(y)
+        time_weights.append(df_batch["time_weight"].to_numpy())
 
     if batch_count == 0:
         print("⚠️ No se entrenó el modelo porque no se procesaron lotes.")
@@ -101,18 +107,21 @@ def train_model():
     # Concatenar todos los datos antes de entrenar el modelo
     X_train = np.vstack([df.to_numpy() for df in X_total])
     y_train = np.hstack([df.to_numpy() for df in y_total])
+    time_weights_train = np.hstack(time_weights)  # Unir los pesos temporales
 
     print(f"🔄 Entrenando modelo final con {len(X_train)} registros...")
     X_train_scaled = scaler.fit_transform(X_train)  # Normalizar datos
-    model.fit(X_train_scaled, y_train)  # Entrenar RandomForest
+
+    # Entrenar RandomForest con `sample_weight`
+    model.fit(X_train_scaled, y_train, sample_weight=time_weights_train)
 
     # Guardar el modelo entrenado
     os.makedirs("models", exist_ok=True)
-    joblib.dump((model, scaler), MODEL_PATH, compress=3)
+    joblib.dump((model, scaler), MODEL_PATH)
     print(f"✅ Modelo entrenado y guardado en {MODEL_PATH} con {batch_count} lotes.")
 
 
 if __name__ == "__main__":
-    print("🚀 Entrenando modelo por lotes sin sobrecargar la memoria...")
+    print("🚀 Entrenando modelo por lotes con pesos temporales...")
     train_model()
     print("🏁 Entrenamiento finalizado con todos los datos.")
