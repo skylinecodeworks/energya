@@ -1,28 +1,16 @@
-from pymongo import MongoClient
+import joblib
+import numpy as np
 
-MONGO_URI = "mongodb://admin:password@localhost:27017/"
-MONGO_DB = "energy_db"  # Ajusta según tu configuración
-MONGO_COLLECTION_ENERGY = "energy_prices"
-MONGO_COLLECTION_METEO = "weather_data"
+# Cargar el modelo entrenado
+model, scaler = joblib.load("models/energy_price_model.pkl")
 
-client = MongoClient(MONGO_URI)
-db = client[MONGO_DB]
+# Crear un dato de prueba (valores dentro de un rango esperado)
+new_data = np.array([[5.0, 80, 0, 0, 0, 1012, 75, 3.5, 10.2, 180, 200]])
 
-# Contar registros en ambas colecciones
-num_energy_records = db[MONGO_COLLECTION_ENERGY].count_documents({})
-num_meteo_records = db[MONGO_COLLECTION_METEO].count_documents({})
+# Normalizar los datos con el mismo escalador del entrenamiento
+new_data_scaled = scaler.transform(new_data)
 
-print(f"⚡ Registros en energy_prices: {num_energy_records}")
-print(f"🌤️ Registros en weather_data: {num_meteo_records}")
+# Hacer la predicción
+predicted_price = model.predict(new_data_scaled)
 
-# Obtener una muestra de 5 registros para inspección
-sample_energy = list(db[MONGO_COLLECTION_ENERGY].find().limit(5))
-sample_meteo = list(db[MONGO_COLLECTION_METEO].find().limit(5))
-
-print("\n🔍 Muestra de datos de precios de energía:")
-for record in sample_energy:
-    print(record)
-
-print("\n🔍 Muestra de datos meteorológicos:")
-for record in sample_meteo:
-    print(record)
+print(f"📊 Predicción del precio de la energía: {predicted_price[0]:.2f} EUR/MWh")
