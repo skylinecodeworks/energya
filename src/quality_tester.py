@@ -40,9 +40,22 @@ df_meteo["timestamp"] = pd.to_datetime(df_meteo["timestamp"])
 # Fusionar datos de precios y meteorológicos por timestamp
 df_merged = pd.merge(df_energy, df_meteo, on="timestamp", how="inner")
 
+# Asegurar que haya datos después de la fusión
+if df_merged.empty:
+    print("⚠️ No hay datos disponibles después de la fusión. Abortando.")
+    exit()
+
+# Calcular "days_since_start" usando el mismo método que en el entrenamiento
+df_merged["days_since_start"] = (df_merged["timestamp"] - df_merged["timestamp"].min()).dt.days
+
 # Separar X (variables predictoras) e y (precio real)
 X = df_merged.drop(columns=["timestamp", "price"])
 y_real = df_merged["price"]
+
+# Asegurar que las características coincidan con el entrenamiento
+expected_features = scaler.n_features_in_
+if X.shape[1] != expected_features:
+    raise ValueError(f"El modelo espera {expected_features} características, pero se encontraron {X.shape[1]}.")
 
 # Normalizar X usando el mismo scaler del entrenamiento
 X_scaled = scaler.transform(X)
