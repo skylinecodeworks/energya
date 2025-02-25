@@ -5,7 +5,7 @@ import numpy as np
 from pymongo import MongoClient
 from datetime import datetime
 from dotenv import load_dotenv
-from sklearn.linear_model import SGDRegressor
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import StandardScaler
 
 # Cargar configuración desde .env
@@ -17,7 +17,7 @@ MONGO_DB = os.getenv("MONGO_DB")
 MONGO_COLLECTION_ENERGY = os.getenv("MONGO_COLLECTION")  # Datos de energía
 MONGO_COLLECTION_METEO = os.getenv("MONGO_COLLECTION_METEO")  # Datos meteorológicos
 MODEL_PATH = "models/energy_price_model.pkl"
-BATCH_SIZE = 50000  # Forzar tamaño del lote
+BATCH_SIZE = 50000  # Tamaño del lote
 
 # Conectar a MongoDB
 client = MongoClient(MONGO_URI)
@@ -65,21 +65,21 @@ def fetch_data_in_batches():
 
 
 def train_model():
-    """Entrena el modelo en lotes sin sobrecargar la memoria."""
-    model = SGDRegressor(max_iter=1000, tol=1e-3, learning_rate="adaptive", eta0=0.01)  # Modelo incremental
+    """Entrena un modelo más robusto con RandomForestRegressor."""
+    model = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1)  # Random Forest con múltiples árboles
     scaler = StandardScaler()  # Normalización de datos
 
-    first_batch = True
+    X_total = []
+    y_total = []
+
     batch_count = 0  # Contador de lotes
 
     for df_batch in fetch_data_in_batches():
         batch_count += 1
 
-        # Definir variables predictoras (X) y variable objetivo (y)
         X = df_batch.drop(columns=["timestamp", "price"])
         y = df_batch["price"]
 
-        # Validar que no haya NaN
         if X.isnull().values.any() or y.isnull().values.any():
             print("⚠️ Datos con NaN detectados, eliminando filas con valores faltantes.")
             df_batch.dropna(inplace=True)
@@ -90,24 +90,25 @@ def train_model():
             print("⚠️ Se detectó un lote vacío después de limpiar NaNs, saltando...")
             continue
 
-        # Normalización de los datos en lotes
-        if first_batch:
-            X_scaled = scaler.fit_transform(X)
-            first_batch = False
-        else:
-            X_scaled = scaler.transform(X)
-
-        # Entrenar el modelo incrementalmente
-        print(f"🔄 Entrenando modelo en lote {batch_count} con {len(X_scaled)} registros...")
-        model.partial_fit(X_scaled, y)
+        # Acumular datos para el entrenamiento
+        X_total.append(X)
+        y_total.append(y)
 
     if batch_count == 0:
         print("⚠️ No se entrenó el modelo porque no se procesaron lotes.")
         return
 
+    # Concatenar todos los datos antes de entrenar el modelo
+    X_train = np.vstack([df.to_numpy() for df in X_total])
+    y_train = np.hstack([df.to_numpy() for df in y_total])
+
+    print(f"🔄 Entrenando modelo final con {len(X_train)} registros...")
+    X_train_scaled = scaler.fit_transform(X_train)  # Normalizar datos
+    model.fit(X_train_scaled, y_train)  # Entrenar RandomForest
+
     # Guardar el modelo entrenado
     os.makedirs("models", exist_ok=True)
-    joblib.dump((model, scaler), MODEL_PATH)
+    joblib.dump((model, scaler), MODEL_PATH, compress=3)
     print(f"✅ Modelo entrenado y guardado en {MODEL_PATH} con {batch_count} lotes.")
 
 
