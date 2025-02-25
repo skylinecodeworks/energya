@@ -25,7 +25,6 @@ db = client[MONGO_DB]
 collection_energy = db[MONGO_COLLECTION_ENERGY]
 collection_meteo = db[MONGO_COLLECTION_METEO]
 
-
 def fetch_data_in_batches():
     """Generador que obtiene datos de MongoDB en lotes."""
     total_records = collection_energy.count_documents({})
@@ -64,7 +63,6 @@ def fetch_data_in_batches():
 
         yield df_merged  # Retorna el lote procesado
 
-
 def train_model():
     """Entrena un modelo con pesos temporales para dar más importancia a los datos recientes."""
     model = RandomForestRegressor(n_estimators=150, max_depth=None, random_state=42, n_jobs=-1)
@@ -79,6 +77,10 @@ def train_model():
     for df_batch in fetch_data_in_batches():
         batch_count += 1
 
+        # Agregar la variable de tiempo "days_since_start"
+        df_batch["days_since_start"] = (df_batch["timestamp"] - df_batch["timestamp"].min()).dt.days
+
+        # Seleccionar todas las características, incluyendo days_since_start
         X = df_batch.drop(columns=["timestamp", "price"])
         y = df_batch["price"]
 
@@ -92,13 +94,10 @@ def train_model():
             print("⚠️ Se detectó un lote vacío después de limpiar NaNs, saltando...")
             continue
 
-        # Crear pesos temporales para dar más importancia a datos recientes
-        df_batch["time_weight"] = (df_batch["timestamp"] - df_batch["timestamp"].min()).dt.days + 1
-
         # Acumular datos para el entrenamiento
         X_total.append(X)
         y_total.append(y)
-        time_weights.append(df_batch["time_weight"].to_numpy())
+        time_weights.append(df_batch["days_since_start"].to_numpy())
 
     if batch_count == 0:
         print("⚠️ No se entrenó el modelo porque no se procesaron lotes.")
@@ -119,7 +118,6 @@ def train_model():
     os.makedirs("models", exist_ok=True)
     joblib.dump((model, scaler), MODEL_PATH)
     print(f"✅ Modelo entrenado y guardado en {MODEL_PATH} con {batch_count} lotes.")
-
 
 if __name__ == "__main__":
     print("🚀 Entrenando modelo por lotes con pesos temporales...")
